@@ -1,0 +1,56 @@
+# Editor files
+.vscode/
+*.swp
+*.swo
+*~
+
+# Node
+node_modules/
+.npm
+npm-debug.log
+yarn-error.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+be/venv/
+be/env/
+.eggs/
+*.egg-info/
+dist/
+build/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+*.iml
+.idea/
+.fleet/
+workspace.xml
+
+# Next.js
+.next/
+out/
+
+# Build output
+dist/
+build/
+
+# Testing
+coverage/
+.nyc_output/
+
+# Playwright
+test-results/
+playwright-report/
