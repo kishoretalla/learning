@@ -16,7 +16,7 @@ import httpx
 
 import nbformat
 import pdfplumber
-from backend.auth import hash_password, SignupRequest, UserResponse, LoginRequest, AuthToken, verify_password, generate_session_token
+from backend.auth import hash_password, SignupRequest, UserResponse, LoginRequest, AuthToken, verify_password, generate_session_token, get_current_user
 from backend.demo_papers import DEMO_PAPER_MAP, DEMO_PAPERS
 from backend.db import init_db, set_engine, get_db
 from backend.models import User, UserSession
@@ -322,6 +322,25 @@ async def logout(
     response.delete_cookie(key="session")
     
     return {"message": "logged out"}
+
+
+@app.get("/api/protected", tags=["Auth"])
+async def protected_endpoint(
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Example protected endpoint demonstrating the auth guard.
+    
+    Requires valid session cookie. Returns current user information.
+    """
+    return {
+        "message": "This is a protected endpoint",
+        "user": {
+            "id": current_user.id,
+            "email": current_user.email,
+            "full_name": current_user.full_name,
+        },
+    }
 
 
 MAX_PDF_SIZE = 10 * 1024 * 1024  # 10 MB

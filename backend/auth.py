@@ -111,3 +111,62 @@ def generate_session_token(user_id: int, expires_in_days: int = 7) -> str:
     # For v2, we use simple secure random tokens
     # For production, would use JWT with proper signature
     return secrets.token_hex(32)
+
+
+# ── Auth Guard for Protected Routes ─────────────────────────────────────────
+
+from fastapi import Depends, HTTPException, Request
+from sqlmodel import Session, select
+from backend.db import get_db
+from backend.models import User, UserSession
+
+
+async def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
+    """
+    Dependency for protecting routes.
+    
+    Extracts session token from cookies, validates it exists in database,
+    and returns the authenticated user.
+    
+    Args:
+        request: FastAPI Request object (cookies)
+        db: Database session (injected via Depends)
+    
+    Returns:
+        Authenticated User object
+    
+    Raises:
+        HTTPException 401 if no valid session found
+    """
+    # Get session token from cookie
+    token = request.cookies.get("session")
+    
+    if not token:
+        raise HTTPException(
+            status_code=401,
+            detail="unauthorized",
+        )
+    
+    # Find session in database
+    session = db.exec(
+        select(UserSession).where(UserSession.token == token)
+    ).first()
+    
+    if not session:
+        raise HTTPException(
+            status_code=401,
+            detail="session expired or invalid",
+        )
+    
+    # Find and return user
+    user = db.exec(
+        select(User).where(User.id == session.user_id)
+    ).first()
+    
+    if not user:
+        raise HTTPException(
+            status_code=401,
+            detail="user not found",
+        )
+    
+    return user
