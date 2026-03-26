@@ -89,3 +89,25 @@ class AuthToken(BaseModel):
     """Response after successful login."""
     access_token: str
     token_type: str = "bearer"
+
+
+# ── JWT Token Generation ────────────────────────────────────────────────────
+
+import secrets
+from datetime import datetime, timedelta, timezone
+
+
+def generate_session_token(user_id: int, expires_in_days: int = 7) -> str:
+    """
+    Generate a secure session token for authenticated user.
+    
+    Args:
+        user_id: ID of the authenticated user
+        expires_in_days: Token expiration time in days
+    
+    Returns:
+        Hex token string suitable for HTTP-only cookie or bearer token
+    """
+    # For v2, we use simple secure random tokens
+    # For production, would use JWT with proper signature
+    return secrets.token_hex(32)

@@ -16,12 +16,12 @@ import httpx
 
 import nbformat
 import pdfplumber
-from backend.auth import hash_password, SignupRequest, UserResponse
+from backend.auth import hash_password, SignupRequest, UserResponse, LoginRequest, AuthToken, verify_password, generate_session_token
 from backend.demo_papers import DEMO_PAPER_MAP, DEMO_PAPERS
 from backend.db import init_db, set_engine, get_db
-from backend.models import User
+from backend.models import User, UserSession
 import pypdf
-from fastapi import FastAPI, Form, HTTPException, Request, UploadFile, Depends
+from fastapi import FastAPI, Form, HTTPException, Request, UploadFile, Depends, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from google import genai
@@ -221,6 +221,107 @@ async def signup(
         full_name=user.full_name,
         created_at=user.created_at.isoformat(),
     )
+
+
+@app.post("/api/auth/login", tags=["Auth"], response_model=AuthToken)
+async def login(
+    request: LoginRequest,
+    response: Response,
+    db: Session = Depends(get_db),
+):
+    """
+    User login endpoint.
+    
+    Authenticates user with email and password.
+    Creates a session token on successful authentication.
+    Sets session cookie for client.
+    
+    Returns: 200 OK with access_token and token_type="bearer"
+    Returns: 401 Unauthorized if email not found or password invalid
+    """
+    # Find user by email
+    user = db.exec(
+        select(User).where(User.email == request.email)
+    ).first()
+    
+    if not user:
+        raise HTTPException(
+            status_code=401,
+            detail="invalid",
+        )
+    
+    # Verify password
+    if not verify_password(request.password, user.hashed_password):
+        raise HTTPException(
+            status_code=401,
+            detail="invalid",
+        )
+    
+    # Generate session token
+    access_token = generate_session_token(user.id)
+    
+    # Create session record in database
+    session = UserSession(
+        user_id=user.id,
+        token=access_token,
+    )
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+    
+    # Set session cookie
+    response.set_cookie(
+        key="session",
+        value=access_token,
+        httponly=True,
+        secure=False,  # False for development, should be True in production
+        samesite="lax",
+    )
+    
+    return AuthToken(access_token=access_token, token_type="bearer")
+
+
+@app.post("/api/auth/logout", tags=["Auth"])
+async def logout(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+):
+    """
+    User logout endpoint.
+    
+    Clears the user's session from the database and removes session cookie.
+    
+    Returns: 200 OK with message "logged out"
+    Returns: 401 Unauthorized if no valid session found
+    """
+    # Get session token from cookie
+    token = request.cookies.get("session")
+    
+    if not token:
+        raise HTTPException(
+            status_code=401,
+            detail="No active session",
+        )
+    
+    # Find and delete session
+    session = db.exec(
+        select(UserSession).where(UserSession.token == token)
+    ).first()
+    
+    if not session:
+        raise HTTPException(
+            status_code=401,
+            detail="Session not found or already logged out",
+        )
+    
+    db.delete(session)
+    db.commit()
+    
+    # Clear session cookie
+    response.delete_cookie(key="session")
+    
+    return {"message": "logged out"}
 
 
 MAX_PDF_SIZE = 10 * 1024 * 1024  # 10 MB
