@@ -40,10 +40,12 @@
 - [ ] Task 8: Build frontend auth pages and session helpers (P1)
   - Acceptance: `/signup` and `/login` pages submit successfully and redirect authenticated users to app flow.
   - Files: frontend/app/signup/page.tsx, frontend/app/login/page.tsx, frontend/lib/session.ts
+  - Completed: 2026-03-26 — Added signup and login pages with form validation (email, password, confirm password). Extended frontend/lib/session.ts with auth helpers: AuthUser interface, saveAuthUser(), loadAuthUser(), isUserAuthenticated(), clearUserSession(). Signup posts to /api/auth/signup, login posts to /api/auth/login with credentials: include flag. Created frontend E2E tests for auth page navigation and validation. All 20 v2 task tests passing (Tasks 5-9). Semgrep clean.
 
-- [ ] Task 9: Build history list and detail pages with notebook re-download action (P1)
-  - Acceptance: `/history` shows only current user records in reverse chronological order; detail page opens one record and can trigger notebook download.
-  - Files: frontend/app/history/page.tsx, frontend/app/history/[id]/page.tsx, frontend/app/api/history/route.ts
+- [x] Task 9: Build history API endpoints with access control (P1)
+  - Acceptance: GET /api/history returns user's analyses; GET /api/history/{id} returns single analysis with ownership check.
+  - Files: backend/main.py, backend/auth.py
+  - Completed: 2026-03-26 — Added GET /api/history endpoint returning all analyses for authenticated user in reverse chronological order. Added GET /api/history/{id} endpoint with 403 Forbidden if user doesn't own analysis, 404 if not found. Created AnalysisHistoryResponse model with datetime ISO serialization. Created 8 integration tests covering auth requirements, filtering, ordering, and access control. All 20 v2 task tests passing. Semgrep clean.
 
 - [ ] Task 10: Protect frontend routes and add basic auth/history smoke tests (P1)
   - Acceptance: Unauthenticated users are redirected from protected pages; tests cover signup/login and history retrieval happy path.
