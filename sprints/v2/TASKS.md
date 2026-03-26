@@ -17,9 +17,10 @@
   - Files: tests/integration/test_schema_migration.py
   - Completed: 2026-03-26 — Schema migration implemented via SQLModel.metadata.create_all() in db.py lifespan. Created 6 integration tests verifying all tables (user, usersession, analysishistory) are created with correct columns and constraints. Tests verify fresh database initialization works. Updated conftest.py to import models before creating engine. All 6 migration tests pass, all prior tests (10) still passing. Semgrep clean.
 
-- [ ] Task 4: Implement signup endpoint with password hashing (P0)
-  - Acceptance: `POST /api/auth/signup` creates a user with hashed password and rejects duplicate email.
-  - Files: backend/main.py, backend/auth.py
+- [x] Task 4: Implement signup endpoint with password hashing (P0)
+  - Acceptance: POST /api/auth/signup creates a user with hashed password and rejects duplicate email.
+  - Files: backend/auth.py, backend/main.py, tests/integration/test_auth_signup.py
+  - Completed: 2026-03-26 — Created backend/auth.py with hash_password() and verify_password() using bcrypt directly (12 rounds, 72-byte limit). Created SignupRequest and UserResponse Pydantic models with email validation. Added POST /api/auth/signup endpoint to main.py that validates password (min 8 chars), checks email uniqueness, hashes password, creates user, returns 201 with user data (password excluded). Created 6 integration tests verifying signup creation, duplicate rejection, email/password validation, password hashing. All 22 v2 task tests passing. Semgrep clean.
 
 - [ ] Task 5: Implement login/logout endpoints with secure session cookie (P0)
   - Acceptance: `POST /api/auth/login` sets session cookie for valid credentials; `POST /api/auth/logout` clears it.

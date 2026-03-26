@@ -32,3 +32,22 @@ def session_with_db():
     # Yield a session
     with Session(engine) as session:
         yield session
+
+
+@pytest.fixture
+def app_with_db(session_with_db):
+    """
+    FastAPI app with overridden database dependency for testing.
+    
+    This allows tests to use the app with an in-memory test database.
+    """
+    from backend.main import app
+    from backend.db import get_db
+    
+    def override_get_db():
+        yield session_with_db
+    
+    app.dependency_overrides[get_db] = override_get_db
+    yield app
+    # Clean up overrides after test
+    app.dependency_overrides.clear()

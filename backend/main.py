@@ -16,15 +16,18 @@ import httpx
 
 import nbformat
 import pdfplumber
+from backend.auth import hash_password, SignupRequest, UserResponse
 from backend.demo_papers import DEMO_PAPER_MAP, DEMO_PAPERS
-from backend.db import init_db, set_engine
+from backend.db import init_db, set_engine, get_db
+from backend.models import User
 import pypdf
-from fastapi import FastAPI, Form, HTTPException, Request, UploadFile
+from fastapi import FastAPI, Form, HTTPException, Request, UploadFile, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from google import genai
 from google.genai import errors as genai_errors
 from pydantic import BaseModel
+from sqlmodel import Session, select
 
 logging.basicConfig(
     level=logging.INFO,
@@ -160,6 +163,64 @@ async def root():
         "version": "0.1.0",
         "docs": "/docs",
     }
+
+
+# ── Authentication Routes ───────────────────────────────────────────────────
+
+@app.post("/api/auth/signup", tags=["Auth"], status_code=201, response_model=UserResponse)
+async def signup(
+    request: SignupRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    User signup endpoint.
+    
+    Creates a new user account with email and password.
+    Password is hashed with bcrypt before storage.
+    
+    Returns: 201 Created with user data (password excluded)
+    Returns: 409 Conflict if email already exists
+    Returns: 422 Validation Error if email/password invalid
+    """
+    # Validate password length (minimum 8 characters for security)
+    if len(request.password) < 8:
+        raise HTTPException(
+            status_code=422,
+            detail="Password must be at least 8 characters long",
+        )
+    
+    # Check if email already exists
+    existing_user = db.exec(
+        select(User).where(User.email == request.email)
+    ).first()
+    
+    if existing_user:
+        raise HTTPException(
+            status_code=409,
+            detail="Email already exists. Please use a different email.",
+        )
+    
+    # Hash password
+    hashed_password = hash_password(request.password)
+    
+    # Create user
+    user = User(
+        email=request.email,
+        hashed_password=hashed_password,
+        full_name=request.full_name,
+    )
+    
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    
+    # Return user data with ISO timestamp
+    return UserResponse(
+        id=user.id,
+        email=user.email,
+        full_name=user.full_name,
+        created_at=user.created_at.isoformat(),
+    )
 
 
 MAX_PDF_SIZE = 10 * 1024 * 1024  # 10 MB
