@@ -8,6 +8,9 @@ import pytest
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, create_engine, SQLModel
 
+# Import models to register them with SQLModel.metadata BEFORE creating engine
+from backend import models as _models  # noqa: F401
+
 
 @pytest.fixture
 def session_with_db():
@@ -23,6 +26,7 @@ def session_with_db():
     )
     
     # Create all tables from SQLModel models
+    # Models must be imported before this call
     SQLModel.metadata.create_all(engine)
     
     # Yield a session

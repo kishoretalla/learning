@@ -12,9 +12,10 @@
   - Files: backend/models.py
   - Completed: 2026-03-26 — Created SQLModel definitions for User, UserSession, AnalysisHistory with proper relationships, unique constraints (email), and timezone-aware timestamps. Email field is unique and indexed for fast lookups. Relationships use back_populates for bidirectional navigation. Created tests/integration/conftest.py with session_with_db fixture for ORM testing. All 5 model tests pass. Semgrep clean.
 
-- [ ] Task 3: Add initial schema migration for auth and history tables (P0)
+- [x] Task 3: Add initial schema migration for auth and history tables (P0)
   - Acceptance: Migration creates all required tables and can be applied on a fresh SQLite database.
-  - Files: backend/migrations/* or backend/schema.sql
+  - Files: tests/integration/test_schema_migration.py
+  - Completed: 2026-03-26 — Schema migration implemented via SQLModel.metadata.create_all() in db.py lifespan. Created 6 integration tests verifying all tables (user, usersession, analysishistory) are created with correct columns and constraints. Tests verify fresh database initialization works. Updated conftest.py to import models before creating engine. All 6 migration tests pass, all prior tests (10) still passing. Semgrep clean.
 
 - [ ] Task 4: Implement signup endpoint with password hashing (P0)
   - Acceptance: `POST /api/auth/signup` creates a user with hashed password and rejects duplicate email.
