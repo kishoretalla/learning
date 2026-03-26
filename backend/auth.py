@@ -170,3 +170,23 @@ async def get_current_user(request: Request, db: Session = Depends(get_db)) -> U
         )
     
     return user
+
+
+async def get_current_user_optional(request: Request, db: Session = Depends(get_db)) -> User | None:
+    """
+    Optional version of get_current_user.
+    
+    Returns the authenticated user if session is valid, or None if not authenticated.
+    Used for endpoints that work with or without authentication.
+    
+    Args:
+        request: FastAPI Request object (cookies)
+        db: Database session (injected via Depends)
+    
+    Returns:
+        Authenticated User object, or None if not authenticated
+    """
+    try:
+        return await get_current_user(request, db)
+    except HTTPException:
+        return None

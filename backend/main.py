@@ -16,10 +16,10 @@ import httpx
 
 import nbformat
 import pdfplumber
-from backend.auth import hash_password, SignupRequest, UserResponse, LoginRequest, AuthToken, verify_password, generate_session_token, get_current_user
+from backend.auth import hash_password, SignupRequest, UserResponse, LoginRequest, AuthToken, verify_password, generate_session_token, get_current_user, get_current_user_optional
 from backend.demo_papers import DEMO_PAPER_MAP, DEMO_PAPERS
 from backend.db import init_db, set_engine, get_db
-from backend.models import User, UserSession
+from backend.models import User, UserSession, AnalysisHistory
 import pypdf
 from fastapi import FastAPI, Form, HTTPException, Request, UploadFile, Depends, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -549,6 +549,39 @@ class GenerateNotebookRequest(BaseModel):
     filename: str | None = None
 
 
+def _generate_title_from_abstract(abstract: str) -> str:
+    """
+    Generate a short title from the paper abstract.
+    
+    Takes the first ~80 characters of the abstract, or first sentence.
+    Falls back to "Research Analysis" if abstract is empty.
+    
+    Args:
+        abstract: Paper abstract text
+    
+    Returns:
+        Generated title (max ~100 chars)
+    """
+    if not abstract.strip():
+        return "Research Analysis"
+    
+    # Take first sentence or 80 characters, whichever is shorter
+    text = abstract.strip()
+    period_idx = text.find(".")
+    
+    if period_idx > 0:
+        title = text[:period_idx]  # First sentence
+    else:
+        title = text[:80]  # First 80 chars
+    
+    # Clean up and ensure reasonable length
+    title = title.strip()
+    if len(title) > 100:
+        title = title[:97] + "..."
+    
+    return title or "Research Analysis"
+
+
 def _md(source: str) -> nbformat.notebooknode.NotebookNode:
     return nbformat.v4.new_markdown_cell(source)
 
@@ -690,9 +723,15 @@ def _build_notebook(req: GenerateNotebookRequest) -> nbformat.notebooknode.Noteb
 
 
 @app.post("/api/generate-notebook", tags=["Notebook"])
-async def generate_notebook(request: GenerateNotebookRequest):
+async def generate_notebook(
+    request: GenerateNotebookRequest,
+    current_user: User | None = Depends(get_current_user_optional),
+    db: Session = Depends(get_db),
+):
     """
     Accept GPT-4o analysis results and return a downloadable Jupyter notebook (.ipynb).
+    
+    For authenticated users, persists analysis history for future reference.
     """
     if not request.abstract.strip() and not request.results.strip():
         raise HTTPException(status_code=400, detail="Analysis result is empty — nothing to generate.")
@@ -710,6 +749,25 @@ async def generate_notebook(request: GenerateNotebookRequest):
 
     _metrics.inc("notebooks_generated")
     logger.info("notebook_generated filename=%s size_bytes=%d", download_name, len(content))
+    
+    # Persist analysis for authenticated users
+    if current_user:
+        title = _generate_title_from_abstract(request.abstract)
+        analysis_history = AnalysisHistory(
+            user_id=current_user.id,
+            filename=request.filename or "unknown.pdf",
+            title=title,
+            notebook_filename=download_name,
+        )
+        db.add(analysis_history)
+        db.commit()
+        db.refresh(analysis_history)
+        logger.info(
+            "analysis_saved user_id=%d filename=%s notebook=%s",
+            current_user.id,
+            request.filename,
+            download_name,
+        )
 
     return StreamingResponse(
         io.BytesIO(content),
