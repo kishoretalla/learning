@@ -15,7 +15,7 @@
     "react-dom": "^18.2.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.40.0",
+    "@playwright/test": "^1.58.2",
     "@tailwindcss/forms": "^0.5.7",
     "@testing-library/react": "^14.1.0",
     "@types/node": "^20.10.0",

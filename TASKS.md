@@ -1,0 +1,264 @@
+# Sprint v1 Tasks - Research Notebook Generator
+
+## Priority 0 (P0) - Critical Path
+
+- [x] **Task 1: Project Setup** ✅ COMPLETE
+  - Date: March 24, 2025
+  - Details: Next.js 14 frontend scaffold, FastAPI backend, Docker Compose, health endpoints
+  - Tests: Backend health check ✅, Root endpoint ✅
+  - Commit: `feat(v1): Task 1 — Project Setup complete`
+
+- [x] **Task 2: ARC Prize Landing Page** ✅ COMPLETE
+  - Date: March 25, 2025
+  - Details: Beautiful hero landing page with ARC Prize aesthetic (dark theme, purple gradients)
+  - Features:
+    - Large gradient heading: "Research Paper → Jupyter Notebook"
+    - Subtitle explaining value prop
+    - 3 feature cards (PDF Upload, AI Analysis, Notebooks)
+    - "Get Started" CTA button (gradient purple→accent) linking to `/upload`
+    - "View Docs" secondary button
+    - Animated background elements
+    - Fully responsive (mobile, tablet, desktop)
+  - Tests: 6 Playwright E2E tests ✅ ALL PASSING (100%)
+    - ✅ Load with ARC Prize gradient background
+    - ✅ Display subtitle text
+    - ✅ Have Get Started button with correct styling
+    - ✅ Dark background verification
+    - ✅ Mobile responsiveness (iPhone 375×667)
+    - ✅ Button clickability
+  - Screenshots: 3 artifacts collected
+    - task2-01-landing-page-load.png
+    - task2-02-landing-page-styled.png
+    - task2-03-mobile-responsive.png
+  - Security: Frontend npm audit reports 4 moderate, 1 high (Next.js version upgrade required for production)
+  - Commit: `feat(v1): Task 2 — ARC Prize Landing Page complete`
+
+- [x] **Task 3: PDF Upload + API Key Form** ✅ COMPLETE
+  - Date: March 25, 2026
+  - Details: `/upload` page with full form; `/processing` placeholder page
+  - Features:
+    - OpenAI API key input (stored in sessionStorage, never persisted to backend)
+    - PDF drag-and-drop upload with click-to-browse fallback
+    - File size validation (max 10MB)
+    - Format validation (.pdf only)
+    - Real-time upload progress bar (gradient, animated)
+    - Submit button disabled until both API key + file present
+    - Remove file button to clear selection
+    - Back link to landing page
+    - Fully responsive (mobile, tablet, desktop)
+  - Tests: 11 Playwright E2E tests ✅ ALL PASSING (100%)
+    - ✅ Loads with correct heading and dark background
+    - ✅ Displays API key input and drop zone
+    - ✅ Submit disabled without API key and file
+    - ✅ Submit disabled with only API key (no file)
+    - ✅ API key persisted to sessionStorage
+    - ✅ Rejects non-PDF files with error message
+    - ✅ Rejects PDF files over 10MB
+    - ✅ Accepts valid PDF and enables submit button
+    - ✅ Remove button clears selected file
+    - ✅ Back link navigates to home
+    - ✅ Mobile responsiveness (375×667)
+  - Screenshots: 3 artifacts collected
+    - task3-01-upload-page-load.png
+    - task3-02-upload-ready.png
+    - task3-03-mobile-responsive.png
+
+- [x] **Task 4: Backend PDF Text Extraction Service** ✅ COMPLETE
+  - Date: March 25, 2026
+  - Details: `POST /api/extract-text` endpoint in `backend/main.py`
+  - Features:
+    - Accepts multipart form: `file` (PDF) + `api_key`
+    - Validates filename (.pdf only), magic bytes (%PDF), size (≤10MB), non-empty
+    - Extracts text with pdfplumber (primary), pypdf (fallback)
+    - Returns `{ filename, total_pages, total_chars, pages: [{ page_number, text, char_count }] }`
+    - HTTP 400 for invalid input, 413 for oversized, 422 for corrupted PDF
+  - Tests: 9 integration tests ✅ ALL PASSING (100%)
+    - ✅ Valid PDF returns structured response
+    - ✅ Page char_count matches text length
+    - ✅ total_chars is sum of page char counts
+    - ✅ Rejects non-PDF filename
+    - ✅ Rejects empty file
+    - ✅ Rejects file without PDF magic bytes
+    - ✅ Rejects file over 10MB (HTTP 413)
+    - ✅ Requires api_key field (HTTP 422 if missing)
+    - ✅ Response contains correct filename
+
+- [x] **Task 5: Backend GPT-4o Paper Analyzer** ✅ COMPLETE
+  - Date: March 25, 2026
+  - Details: `POST /api/analyze-paper` endpoint in `backend/main.py`
+  - Features:
+    - Accepts JSON body: `{ text, api_key, filename? }`
+    - Calls GPT-4o with JSON mode for consistent structured output
+    - Extracts: abstract, methodologies, algorithms, datasets, results, conclusions
+    - Text truncated to 100k chars (safely within GPT-4o 128k context)
+    - Streaming SSE via `?stream=true` (yields `data:` delta events + final `event: complete`)
+    - HTTP 401 for invalid API key, 429 for rate limit, 502 for other OpenAI errors
+  - Tests: 11 integration tests ✅ ALL PASSING (100%)
+    - ✅ Returns structured JSON with all required keys
+    - ✅ Returns correct values from GPT-4o response
+    - ✅ Accepts optional filename field
+    - ✅ Rejects empty text (400)
+    - ✅ Rejects whitespace-only text (400)
+    - ✅ Rejects empty API key (400)
+    - ✅ Invalid API key returns 401
+    - ✅ Rate limit returns 429
+    - ✅ Oversized text is truncated (not rejected)
+    - ✅ Missing text field returns 422
+    - ✅ Missing api_key field returns 422
+
+- [x] **Task 6: Backend Notebook Generator** ✅ COMPLETE
+  - Date: March 25, 2026
+  - Details: `POST /api/generate-notebook` endpoint in `backend/main.py`
+  - Features:
+    - Accepts JSON body from Task 5 analysis: `{ abstract, methodologies[], algorithms[], datasets[], results, conclusions, filename? }`
+    - Generates valid nbformat v4 Jupyter notebook with:
+      - Title + generated timestamp cell
+      - Setup cell (numpy, pandas, matplotlib, sklearn imports)
+      - Abstract markdown cell
+      - Methodologies bullet list
+      - Algorithm stub code cells (one per algorithm, with `NotImplementedError`)
+      - Datasets section + synthetic data generation code (numpy/pandas)
+      - Results section + matplotlib bar chart visualization
+      - Conclusions + References markdown cells
+    - Passes `nbformat.validate()` before returning
+    - Returns as `application/octet-stream` download with `{stem}-notebook.ipynb` filename
+    - HTTP 400 if both abstract and results are empty
+  - Tests: 19 integration tests ✅ ALL PASSING (100%)
+    - ✅ Returns octet-stream content type
+    - ✅ Content-Disposition has .ipynb filename
+    - ✅ Filename derived from input
+    - ✅ Default filename when none provided
+    - ✅ Response is valid .ipynb (nbformat validated)
+    - ✅ Notebook has both markdown and code cells
+    - ✅ Contains abstract text
+    - ✅ Contains all methodologies
+    - ✅ Contains algorithm stubs with NotImplementedError
+    - ✅ Contains datasets
+    - ✅ Contains results
+    - ✅ Contains conclusions
+    - ✅ Has kernelspec metadata
+    - ✅ Setup cell has numpy/pandas/matplotlib imports
+    - ✅ One stub cell per algorithm
+    - ✅ Rejects fully empty analysis (400)
+    - ✅ Missing required field returns 422
+    - ✅ Empty algorithms list produces valid notebook
+    - ✅ Empty datasets list produces valid notebook
+
+- [x] **Task 7: Processing Status Page (Frontend)** ✅ COMPLETE
+  - Date: March 25, 2026
+  - Details: Full `/processing` page replacing the Task 3 placeholder
+  - Features:
+    - 3-step pipeline: Extract (pre-done) → Analyze → Generate
+    - Step icons: ✓ done / ● running (animated) / ○ pending / ✗ error
+    - Drives full pipeline: POST /api/analyze-paper then POST /api/generate-notebook
+    - No-data guard: if sessionStorage empty → friendly prompt to upload
+    - Error state: message + Retry button + "Upload again" link
+    - Success state: Download .ipynb button (blob URL) + Colab placeholder
+    - "Convert another paper" link on success
+    - Fully responsive
+  - Tests: 10 Playwright E2E tests ✅ ALL PASSING (100%)
+    - ✅ No-data state when sessionStorage is empty
+    - ✅ No-data state has link back to upload
+    - ✅ Shows step list when session data exists
+    - ✅ Extract step is already marked done on load
+    - ✅ Reaches complete state and shows download button on success
+    - ✅ Download button has correct .ipynb filename
+    - ✅ Shows error state and retry button when analyze fails
+    - ✅ Shows error state when generate fails
+    - ✅ Error message contains API error detail
+    - ✅ Mobile responsive (375×667)
+  - Screenshots: 4 artifacts collected
+    - task7-01-no-data.png
+    - task7-02-complete.png
+    - task7-03-error.png
+    - task7-04-mobile.png
+
+## Priority 1 (P1) - Important
+
+- [x] **Task 8: Colab Integration** ✅ COMPLETE
+  - Date: March 25, 2026
+  - Details: Colab-compatible notebooks + Gist-based deep links + frontend Colab button
+  - Features:
+    - **Notebooks**: Colab-compatible — setup cell uses try/except import (works in Colab, Jupyter, plain Python); `colab: { name }` added to notebook metadata
+    - **Backend** `POST /api/create-colab-link`: creates private GitHub Gist, returns `{ available, colab_url, gist_url, gist_id }`. Requires `GITHUB_TOKEN` env var; returns `available: false` gracefully when not set
+    - **Frontend**: `ColabButton` component with 3 states — loading (animated), ready (gold Colab button with link), unavailable (manual instructions)
+    - `.env.example` updated with `GITHUB_TOKEN` guidance
+  - Tests: 11 backend + 27 E2E (all passing) ✅
+    - ✅ Returns unavailable when no GITHUB_TOKEN
+    - ✅ Returns colab_url when token set (mocked GitHub API)
+    - ✅ URL contains username and gist ID
+    - ✅ Appends .ipynb to filename if missing
+    - ✅ Returns unavailable on bad token / gist creation failure
+    - ✅ Rejects empty notebook_json (400)
+    - ✅ Notebook has colab metadata
+    - ✅ Setup cell uses try/except import pattern
+    - ✅ All 27 E2E tests still passing (no regressions)
+
+- [x] **Task 9: User Session Management** ✅ COMPLETE
+  - Date: March 25, 2026
+  - Details: Centralised session utility + CSRF middleware
+  - Features:
+    - `frontend/lib/session.ts` — `saveApiKey` (with 1-hour TTL), `loadApiKey` (auto-clears if expired), `clearSession`, `isSessionActive`, `sessionExpiresAt`, `CSRF_HEADER`
+    - Upload page: "Clear session" button (shown only when key present), expiry timestamp, uses session lib
+    - Processing page: uses `loadApiKey()` + CSRF header on all fetches
+    - Backend: CSRF middleware active in `ENVIRONMENT=production`; requires `X-Requested-With: fetch|XMLHttpRequest` on mutations; gracefully bypassed in dev/test
+  - Tests: 11 E2E (session-management) + 7 backend (CSRF) ✅ ALL PASSING (100%)
+    - ✅ Clear button hidden without API key
+    - ✅ Clear button appears after key entered
+    - ✅ Clear button removes key + hides itself
+    - ✅ Session expiry shown after key entered
+    - ✅ Expiry ≈ 1 hour from now
+    - ✅ Clear session removes all session keys from sessionStorage
+    - ✅ Submit disabled after clear
+    - ✅ Restores key on page reload (within session)
+    - ✅ Expired session cleared on page load
+    - ✅ CSRF blocks POST without header in production
+    - ✅ CSRF allows POST with X-Requested-With header
+    - ✅ CSRF allows GET without header
+    - ✅ CSRF not enforced in development/unset
+
+- [x] **Task 10: Analytics & Error Logging** ✅ COMPLETE
+  - Date: March 25, 2026
+  - Details: In-memory `_Metrics` dataclass + `GET /api/metrics` endpoint + structured logging
+  - Features:
+    - Thread-safe `_Metrics` dataclass tracks: uploads_attempted, upload_errors, analyses_attempted, analyses_successful, api_key_invalid, rate_limit_hits, notebooks_generated, colab_links_created
+    - Computed rates: upload_error_rate, conversion_success_rate
+    - uptime_since ISO timestamp
+    - Structured JSON-format logging on every significant event (pdf_extracted, analysis_started, api_key_invalid, rate_limit_hit, notebook_generated, etc.)
+    - `GET /api/metrics` returns full snapshot
+  - Tests: 13 integration tests ✅ ALL PASSING (100%)
+
+## Priority 2 (P2) - Nice-to-Have
+
+- [x] **Task 11: Demo Papers Library** ✅ COMPLETE
+  - Date: March 25, 2026
+  - Details: 3 synthetic demo papers + backend endpoints + frontend demo section
+  - Features:
+    - `backend/demo_papers.py` — 3 papers: "Attention Is All You Need", "BERT", "ARC-AGI"
+    - `GET /api/demo-papers` — catalogue (no text exposed)
+    - `POST /api/demo-papers/{id}/extract` — returns pre-extracted text (same shape as real PDF extraction), `is_demo: true`
+    - Frontend `DemoSection` component on upload page — loads catalogue, shows cards with topic/year, "Try →" button bypasses PDF upload
+    - Tutorial: description on each card + topic tags
+  - Tests: 12 integration tests ✅ ALL PASSING (100%)
+
+- [x] **Task 12: Markdown Export Option** ✅ COMPLETE
+  - Date: March 25, 2026
+  - Details: `POST /api/export-markdown` endpoint + "Download as Markdown" button on success page
+  - Features:
+    - Accepts same `GenerateNotebookRequest` body as notebook generator
+    - Outputs GitHub-flavored Markdown with `---` section dividers
+    - All sections: title (h1), abstract, methodologies (bullets), algorithms (fenced ```python blocks + stubs), datasets (fenced code), results, conclusions, references
+    - Returns `text/markdown` as attachment `{stem}-notebook.md`
+    - Frontend: "Download as Markdown (.md)" button appears alongside .ipynb download on success page
+    - Markdown export runs in parallel with notebook generation (non-blocking)
+  - Tests: 18 integration tests ✅ ALL PASSING (100%)
+
+## Summary
+
+- **Total Tasks:** 12
+- **Completed:** 12 ✅
+- **In Progress:** 0
+- **Blocked:** 0
+- **Not Started:** 0
+
+**Progress:** 100% (12 of 12 tasks complete) 🎉
