@@ -16,7 +16,7 @@ import httpx
 
 import nbformat
 import pdfplumber
-from backend.auth import hash_password, SignupRequest, UserResponse, LoginRequest, AuthToken, verify_password, generate_session_token, get_current_user, get_current_user_optional
+from backend.auth import hash_password, SignupRequest, UserResponse, LoginRequest, AuthToken, verify_password, generate_session_token, get_current_user, get_current_user_optional, AnalysisHistoryResponse
 from backend.demo_papers import DEMO_PAPER_MAP, DEMO_PAPERS
 from backend.db import init_db, set_engine, get_db
 from backend.models import User, UserSession, AnalysisHistory
@@ -341,6 +341,61 @@ async def protected_endpoint(
             "full_name": current_user.full_name,
         },
     }
+
+
+# ── History API Routes ──────────────────────────────────────────────────────
+
+@app.get("/api/history", tags=["History"], response_model=list[AnalysisHistoryResponse])
+async def get_user_history(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get all analysis history for the authenticated user.
+    
+    Returns analyses in reverse chronological order (newest first).
+    """
+    histories = db.exec(
+        select(AnalysisHistory)
+        .where(AnalysisHistory.user_id == current_user.id)
+        .order_by(AnalysisHistory.created_at.desc())
+    ).all()
+    
+    return histories
+
+
+@app.get("/api/history/{analysis_id}", tags=["History"], response_model=AnalysisHistoryResponse)
+async def get_analysis(
+    analysis_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get a single analysis by ID.
+    
+    User can only access their own analyses.
+    Returns: 200 OK with analysis details
+    Returns: 403 Forbidden if analysis belongs to different user
+    Returns: 404 Not Found if analysis doesn't exist
+    """
+    analysis = db.exec(
+        select(AnalysisHistory).where(AnalysisHistory.id == analysis_id)
+    ).first()
+    
+    if not analysis:
+        raise HTTPException(
+            status_code=404,
+            detail="Analysis not found",
+        )
+    
+    # Check ownership
+    if analysis.user_id != current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="You do not have access to this analysis",
+        )
+    
+    return analysis
 
 
 MAX_PDF_SIZE = 10 * 1024 * 1024  # 10 MB

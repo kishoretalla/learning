@@ -7,8 +7,9 @@ Provides:
 - Signup/login helpers
 """
 import bcrypt
-from pydantic import BaseModel, EmailStr, ConfigDict
+from pydantic import BaseModel, EmailStr, ConfigDict, field_serializer
 from typing import Optional
+from datetime import datetime
 
 # ── Password Hashing ────────────────────────────────────────────────────────
 
@@ -77,6 +78,25 @@ class UserResponse(BaseModel):
     created_at: str
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class AnalysisHistoryResponse(BaseModel):
+    """Analysis history response for API."""
+    id: int
+    user_id: int
+    filename: str
+    title: Optional[str] = None
+    notebook_filename: str
+    created_at: datetime  # Accept datetime from ORM
+
+    model_config = ConfigDict(from_attributes=True)
+    
+    @field_serializer('created_at')
+    def serialize_created_at(self, value):
+        """Convert datetime to ISO string for JSON response."""
+        if isinstance(value, datetime):
+            return value.isoformat()
+        return value
 
 
 class LoginRequest(BaseModel):
