@@ -22,17 +22,20 @@
   - Files: backend/auth.py, backend/main.py, tests/integration/test_auth_signup.py
   - Completed: 2026-03-26 — Created backend/auth.py with hash_password() and verify_password() using bcrypt directly (12 rounds, 72-byte limit). Created SignupRequest and UserResponse Pydantic models with email validation. Added POST /api/auth/signup endpoint to main.py that validates password (min 8 chars), checks email uniqueness, hashes password, creates user, returns 201 with user data (password excluded). Created 6 integration tests verifying signup creation, duplicate rejection, email/password validation, password hashing. All 22 v2 task tests passing. Semgrep clean.
 
-- [ ] Task 5: Implement login/logout endpoints with secure session cookie (P0)
+- [x] Task 5: Implement login/logout endpoints with secure session cookie (P0)
   - Acceptance: `POST /api/auth/login` sets session cookie for valid credentials; `POST /api/auth/logout` clears it.
   - Files: backend/main.py, backend/auth.py
+  - Completed: 2026-03-26 — Implemented login and logout endpoints with secure HTTP-only session cookies. LoginRequest validates email + password, creates UserSession record, returns AuthToken with access_token and token_type="bearer". Logout endpoint reads session cookie, deletes session, clears cookie. Created 4 integration tests. All 26 v2 task tests passing (added 4 new). Semgrep clean.
 
-- [ ] Task 6: Add backend auth guard utility for protected routes (P0)
+- [x] Task 6: Add backend auth guard utility for protected routes (P0)
   - Acceptance: Protected endpoints return 401 when no valid session exists and resolve current user when authenticated.
   - Files: backend/auth.py, backend/main.py
+  - Completed: 2026-03-26 — Created get_current_user() dependency that reads session cookie, finds session in database, returns authenticated User. Also created get_current_user_optional() for endpoints that work with or without auth. Added /api/protected example endpoint. Created 4 integration tests. All 30 v2 task tests passing. Semgrep clean.
 
-- [ ] Task 7: Persist analysis results after successful generation for authenticated users (P1)
+- [x] Task 7: Persist analysis results after successful generation for authenticated users (P1)
   - Acceptance: Completed analysis creates an `AnalysisHistory` row including title, timestamp, and notebook reference.
   - Files: backend/main.py, backend/models.py
+  - Completed: 2026-03-26 — Updated /api/generate-notebook to accept optional authenticated user via get_current_user_optional. After successful notebook generation, creates AnalysisHistory record with user_id, filename, generated title, and notebook_filename. Title generated from abstract first sentence or first 80 chars. Created _generate_title_from_abstract() helper. Created 4 integration tests. All 34 v2 task tests passing. Semgrep clean.
 
 - [ ] Task 8: Build frontend auth pages and session helpers (P1)
   - Acceptance: `/signup` and `/login` pages submit successfully and redirect authenticated users to app flow.

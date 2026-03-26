@@ -11,6 +11,7 @@ const KEYS = {
   API_KEY_EXPIRY:    'openai_api_key_expiry',
   EXTRACTION_RESULT: 'extraction_result',
   ANALYSIS_RESULT:   'analysis_result',
+  AUTH_USER:         'auth_user',
 } as const
 
 // ── API key ─────────────────────────────────────────────────────────────────
@@ -56,3 +57,45 @@ export function sessionExpiresAt(): Date | null {
 // distinguish legitimate browser requests from cross-site form submissions.
 
 export const CSRF_HEADER = { 'X-Requested-With': 'fetch' } as const
+
+// ── Authenticated User Session ───────────────────────────────────────────────
+// User data is stored in sessionStorage only (cleared when tab closes)
+// Server-side session is managed via HTTP-only cookie set by /api/auth/login
+
+export interface AuthUser {
+  id: number
+  email: string
+  full_name?: string
+}
+
+export function saveAuthUser(user: AuthUser): void {
+  sessionStorage.setItem(KEYS.AUTH_USER, JSON.stringify(user))
+}
+
+export function loadAuthUser(): AuthUser | null {
+  const stored = sessionStorage.getItem(KEYS.AUTH_USER)
+  if (!stored) return null
+  try {
+    return JSON.parse(stored) as AuthUser
+  } catch {
+    return null
+  }
+}
+
+export function clearAuthUser(): void {
+  sessionStorage.removeItem(KEYS.AUTH_USER)
+}
+
+export function isUserAuthenticated(): boolean {
+  return loadAuthUser() !== null
+}
+
+/**
+ * Clear all user-related session data.
+ * Call this on logout or when switching users.
+ */
+export function clearUserSession(): void {
+  clearAuthUser()
+  // Note: API key session is NOT cleared here since it's independent
+  // Call clearSession() to clear everything including API key
+}
