@@ -7,9 +7,10 @@
   - Files: backend/pyproject.toml, backend/main.py, backend/db.py
   - Completed: 2026-03-26 — Added SQLModel, passlib, bcrypt, python-jose to dependencies. Created backend/db.py with init_db(), get_session_factory(), get_db() dependency injection. Integrated DB initialization into FastAPI lifespan. All 5 tests pass. Semgrep findings relate to pre-existing v1 code (Dockerfile USER, main.py logger). New db.py code is clean.
 
-- [ ] Task 2: Create user and analysis history database models (P0)
-  - Acceptance: `User`, `Session` (or equivalent), and `AnalysisHistory` models exist with user-to-history relationship and timestamps.
+- [x] Task 2: Create user and analysis history database models (P0)
+  - Acceptance: User, Session (or equivalent), and AnalysisHistory models exist with user-to-history relationship and timestamps.
   - Files: backend/models.py
+  - Completed: 2026-03-26 — Created SQLModel definitions for User, UserSession, AnalysisHistory with proper relationships, unique constraints (email), and timezone-aware timestamps. Email field is unique and indexed for fast lookups. Relationships use back_populates for bidirectional navigation. Created tests/integration/conftest.py with session_with_db fixture for ORM testing. All 5 model tests pass. Semgrep clean.
 
 - [ ] Task 3: Add initial schema migration for auth and history tables (P0)
   - Acceptance: Migration creates all required tables and can be applied on a fresh SQLite database.

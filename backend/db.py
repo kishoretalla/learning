@@ -10,6 +10,10 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlmodel import SQLModel, create_engine
 
+# Import models to register them with SQLModel.metadata
+# Must be imported before init_db() is called
+from backend import models as _models  # noqa: F401
+
 logger = logging.getLogger(__name__)
 
 
