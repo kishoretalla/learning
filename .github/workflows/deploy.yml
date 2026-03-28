@@ -34,12 +34,37 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
+      - name: Resolve AWS account ID
+        id: aws-account
+        run: echo "account_id=$(aws sts get-caller-identity --query Account --output text)" >> "$GITHUB_OUTPUT"
+
+      - name: Ensure Terraform state bucket
+        id: tfstate
+        run: |
+          TF_STATE_BUCKET="${APP_NAME}-tfstate-${{ steps.aws-account.outputs.account_id }}"
+          echo "bucket=$TF_STATE_BUCKET" >> "$GITHUB_OUTPUT"
+
+          if aws s3api head-bucket --bucket "$TF_STATE_BUCKET" 2>/dev/null; then
+            echo "Terraform state bucket exists: $TF_STATE_BUCKET"
+          else
+            echo "Creating Terraform state bucket: $TF_STATE_BUCKET"
+            if [ "$AWS_REGION" = "us-east-1" ]; then
+              aws s3api create-bucket --bucket "$TF_STATE_BUCKET"
+            else
+              aws s3api create-bucket --bucket "$TF_STATE_BUCKET" --create-bucket-configuration "LocationConstraint=$AWS_REGION"
+            fi
+          fi
+
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
 
       - name: Terraform init
         working-directory: infra/terraform
-        run: terraform init
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ steps.tfstate.outputs.bucket }}" \
+            -backend-config="key=ecs/terraform.tfstate" \
+            -backend-config="region=${AWS_REGION}"
 
       - name: Bootstrap ECR repositories
         run: |
@@ -60,10 +85,6 @@ jobs:
         run: |
           terraform import aws_ecr_repository.frontend "${APP_NAME}-frontend" || true
           terraform import aws_ecr_repository.backend "${APP_NAME}-backend" || true
-
-      - name: Resolve AWS account ID
-        id: aws-account
-        run: echo "account_id=$(aws sts get-caller-identity --query Account --output text)" >> "$GITHUB_OUTPUT"
 
       - name: Verify ECR repositories
         run: |
