@@ -42,11 +42,18 @@ jobs:
         run: terraform init
 
       - name: Bootstrap ECR repositories
-        working-directory: infra/terraform
         run: |
-          terraform apply -auto-approve \
-            -target=aws_ecr_repository.frontend \
-            -target=aws_ecr_repository.backend
+          for repo in "${APP_NAME}-backend" "${APP_NAME}-frontend"; do
+            if aws ecr describe-repositories --region "$AWS_REGION" --repository-names "$repo" >/dev/null 2>&1; then
+              echo "ECR repository exists: $repo"
+            else
+              echo "Creating ECR repository: $repo"
+              aws ecr create-repository \
+                --region "$AWS_REGION" \
+                --repository-name "$repo" \
+                --image-scanning-configuration scanOnPush=true >/dev/null
+            fi
+          done
 
       - name: Resolve AWS account ID
         id: aws-account
