@@ -121,6 +121,25 @@ jobs:
             terraform import aws_lb_target_group.backend "$BE_TG_ARN" || true
           fi
 
+          ALB_ARN=$(aws elbv2 describe-load-balancers --region "$AWS_REGION" --names "${NAME_PREFIX}-alb" --query 'LoadBalancers[0].LoadBalancerArn' --output text 2>/dev/null || true)
+          if [ "$ALB_ARN" != "None" ] && [ -n "$ALB_ARN" ]; then
+            terraform import aws_lb.app "$ALB_ARN" || true
+
+            LISTENER_ARN=$(aws elbv2 describe-listeners --region "$AWS_REGION" --load-balancer-arn "$ALB_ARN" --query 'Listeners[?Port==`80`].ListenerArn | [0]' --output text 2>/dev/null || true)
+            if [ "$LISTENER_ARN" != "None" ] && [ -n "$LISTENER_ARN" ]; then
+              terraform import aws_lb_listener.http "$LISTENER_ARN" || true
+
+              RULE_ARN=$(aws elbv2 describe-rules --region "$AWS_REGION" --listener-arn "$LISTENER_ARN" --query 'Rules[?Priority==`10`].RuleArn | [0]' --output text 2>/dev/null || true)
+              if [ "$RULE_ARN" != "None" ] && [ -n "$RULE_ARN" ]; then
+                terraform import aws_lb_listener_rule.backend_api "$RULE_ARN" || true
+              fi
+            fi
+          fi
+
+          terraform import aws_ecs_cluster.app "${NAME_PREFIX}-cluster" || true
+          terraform import aws_ecs_service.frontend "${NAME_PREFIX}-cluster/${NAME_PREFIX}-frontend" || true
+          terraform import aws_ecs_service.backend "${NAME_PREFIX}-cluster/${NAME_PREFIX}-backend" || true
+
       - name: Verify ECR repositories
         run: |
           aws ecr describe-repositories --region "$AWS_REGION" --repository-names "${APP_NAME}-backend" "${APP_NAME}-frontend"
