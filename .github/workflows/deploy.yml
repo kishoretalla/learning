@@ -86,6 +86,41 @@ jobs:
           terraform import aws_ecr_repository.frontend "${APP_NAME}-frontend" || true
           terraform import aws_ecr_repository.backend "${APP_NAME}-backend" || true
 
+      - name: Import existing AWS resources into Terraform state
+        working-directory: infra/terraform
+        run: |
+          NAME_PREFIX="${APP_NAME}-prod"
+
+          terraform import aws_cloudwatch_log_group.frontend "/ecs/${NAME_PREFIX}/frontend" || true
+          terraform import aws_cloudwatch_log_group.backend "/ecs/${NAME_PREFIX}/backend" || true
+
+          terraform import aws_iam_role.ecs_task_execution "${NAME_PREFIX}-ecs-execution-role" || true
+          terraform import aws_iam_role.ecs_task "${NAME_PREFIX}-ecs-task-role" || true
+          terraform import aws_iam_role_policy_attachment.ecs_task_execution "${NAME_PREFIX}-ecs-execution-role/arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy" || true
+
+          DEFAULT_VPC_ID=$(aws ec2 describe-vpcs --region "$AWS_REGION" --filters Name=isDefault,Values=true --query 'Vpcs[0].VpcId' --output text)
+          if [ "$DEFAULT_VPC_ID" != "None" ] && [ -n "$DEFAULT_VPC_ID" ]; then
+            ALB_SG_ID=$(aws ec2 describe-security-groups --region "$AWS_REGION" --filters Name=vpc-id,Values="$DEFAULT_VPC_ID" Name=group-name,Values="${NAME_PREFIX}-alb-sg" --query 'SecurityGroups[0].GroupId' --output text)
+            SERVICES_SG_ID=$(aws ec2 describe-security-groups --region "$AWS_REGION" --filters Name=vpc-id,Values="$DEFAULT_VPC_ID" Name=group-name,Values="${NAME_PREFIX}-services-sg" --query 'SecurityGroups[0].GroupId' --output text)
+
+            if [ "$ALB_SG_ID" != "None" ] && [ -n "$ALB_SG_ID" ]; then
+              terraform import aws_security_group.alb "$ALB_SG_ID" || true
+            fi
+            if [ "$SERVICES_SG_ID" != "None" ] && [ -n "$SERVICES_SG_ID" ]; then
+              terraform import aws_security_group.services "$SERVICES_SG_ID" || true
+            fi
+          fi
+
+          FE_TG_ARN=$(aws elbv2 describe-target-groups --region "$AWS_REGION" --names "${NAME_PREFIX}-fe" --query 'TargetGroups[0].TargetGroupArn' --output text 2>/dev/null || true)
+          BE_TG_ARN=$(aws elbv2 describe-target-groups --region "$AWS_REGION" --names "${NAME_PREFIX}-be" --query 'TargetGroups[0].TargetGroupArn' --output text 2>/dev/null || true)
+
+          if [ "$FE_TG_ARN" != "None" ] && [ -n "$FE_TG_ARN" ]; then
+            terraform import aws_lb_target_group.frontend "$FE_TG_ARN" || true
+          fi
+          if [ "$BE_TG_ARN" != "None" ] && [ -n "$BE_TG_ARN" ]; then
+            terraform import aws_lb_target_group.backend "$BE_TG_ARN" || true
+          fi
+
       - name: Verify ECR repositories
         run: |
           aws ecr describe-repositories --region "$AWS_REGION" --repository-names "${APP_NAME}-backend" "${APP_NAME}-frontend"
