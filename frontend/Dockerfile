@@ -11,7 +11,9 @@ RUN mkdir -p public && npm run build
 FROM node:20-alpine AS runner
 
 WORKDIR /app
-ENV NODE_ENV=production
+ENV NODE_ENV=production \
+  HOSTNAME=0.0.0.0 \
+  PORT=3000
 
 RUN apk add --no-cache nginx supervisor \
     && mkdir -p /run/nginx /var/lib/nginx/tmp /etc/nginx/http.d
