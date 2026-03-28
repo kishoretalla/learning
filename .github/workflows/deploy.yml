@@ -55,6 +55,12 @@ jobs:
             fi
           done
 
+      - name: Import ECR repositories into Terraform state
+        working-directory: infra/terraform
+        run: |
+          terraform import aws_ecr_repository.frontend "${APP_NAME}-frontend" || true
+          terraform import aws_ecr_repository.backend "${APP_NAME}-backend" || true
+
       - name: Resolve AWS account ID
         id: aws-account
         run: echo "account_id=$(aws sts get-caller-identity --query Account --output text)" >> "$GITHUB_OUTPUT"
