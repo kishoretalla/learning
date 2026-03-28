@@ -11,12 +11,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --create-home appuser
 
-# Copy only the backend package so imports from backend.* resolve correctly
-COPY backend/pyproject.toml ./backend/
-COPY backend/ ./backend/
+# Install backend dependencies from pyproject without building a wheel.
+# The source tree is copied afterward and imported directly as backend.*.
+COPY backend/pyproject.toml ./backend/pyproject.toml
 
 RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir ./backend
+    && python - <<'PY' > /tmp/requirements.txt
+import tomllib
+
+with open('/app/backend/pyproject.toml', 'rb') as f:
+    data = tomllib.load(f)
+
+for dep in data['project']['dependencies']:
+    print(dep)
+PY
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
+
+COPY backend/ ./backend/
 
 USER appuser
 
