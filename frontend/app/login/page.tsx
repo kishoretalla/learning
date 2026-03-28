@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { saveAuthUser, CSRF_HEADER } from '@/lib/session'
@@ -16,7 +16,7 @@ interface UserResponse {
   full_name?: string
 }
 
-export default function LoginPage() {
+function LoginPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const from = searchParams.get('from')
@@ -199,5 +199,13 @@ export default function LoginPage() {
         </div>
       </div>
     </main>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<main className="min-h-screen bg-arc-dark" />}>
+      <LoginPageContent />
+    </Suspense>
   )
 }
