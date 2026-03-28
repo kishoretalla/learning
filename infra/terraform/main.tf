@@ -151,8 +151,8 @@ resource "aws_lb_target_group" "frontend" {
   vpc_id      = data.aws_vpc.default.id
 
   health_check {
-    path                = "/"
-    matcher             = "200-399"
+    path                = "/_lb_health"
+    matcher             = "200"
     healthy_threshold   = 2
     unhealthy_threshold = 5
   }
