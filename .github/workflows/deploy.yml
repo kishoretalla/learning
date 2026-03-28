@@ -187,7 +187,7 @@ jobs:
             --retry 18 \
             --retry-connrefused \
             --retry-delay 10 \
-            "http://${ALB_DNS}/" >/dev/null
+            "http://${ALB_DNS}/_lb_health" >/dev/null
 
           curl --fail --show-error --silent \
             --retry 18 \
@@ -199,6 +199,6 @@ jobs:
             echo "## Deployment Verified"
             echo
             echo "- ALB: http://${ALB_DNS}"
-            echo "- Frontend `/`: OK"
+            echo "- Frontend `/_lb_health`: OK"
             echo "- Backend `/health`: OK"
           } >> "$GITHUB_STEP_SUMMARY"
