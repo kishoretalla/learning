@@ -171,19 +171,26 @@ jobs:
         run: |
           echo "alb_dns_name=$(terraform output -raw alb_dns_name)" >> "$GITHUB_OUTPUT"
 
+      - name: Wait for ECS services to stabilize
+        run: |
+          CLUSTER_NAME="${APP_NAME}-prod-cluster"
+          aws ecs wait services-stable \
+            --cluster "$CLUSTER_NAME" \
+            --services "${APP_NAME}-prod-frontend" "${APP_NAME}-prod-backend"
+
       - name: Post-deploy smoke test
         run: |
           ALB_DNS="${{ steps.tf-outputs.outputs.alb_dns_name }}"
           test -n "$ALB_DNS"
 
           curl --fail --show-error --silent \
-            --retry 12 \
+            --retry 18 \
             --retry-connrefused \
             --retry-delay 10 \
             "http://${ALB_DNS}/" >/dev/null
 
           curl --fail --show-error --silent \
-            --retry 12 \
+            --retry 18 \
             --retry-connrefused \
             --retry-delay 10 \
             "http://${ALB_DNS}/health" >/dev/null
