@@ -5,16 +5,20 @@ Provides SQLModel + SQLAlchemy integration for persistent storage of users,
 sessions, and analysis history.
 """
 import logging
+import os
 from contextlib import contextmanager
 from sqlalchemy.engine import Engine
-from sqlalchemy.orm import Session, sessionmaker
-from sqlmodel import SQLModel, create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlmodel import SQLModel, Session, create_engine
 
 # Import models to register them with SQLModel.metadata
 # Must be imported before init_db() is called
 from backend import models as _models  # noqa: F401
 
 logger = logging.getLogger(__name__)
+
+
+DEFAULT_DATABASE_URL = "sqlite:///./research-notebook.db"
 
 
 def init_db(database_url: str) -> Engine:
@@ -54,7 +58,7 @@ def get_session_factory(engine: Engine) -> sessionmaker:
     Returns:
         sessionmaker instance for creating new sessions
     """
-    return sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    return sessionmaker(autocommit=False, autoflush=False, bind=engine, class_=Session)
 
 
 @contextmanager
@@ -106,7 +110,8 @@ def get_db() -> Session:
     """
     global _session_factory
     if _session_factory is None:
-        raise RuntimeError("Database not initialized. Call init_db() on startup.")
+        engine = init_db(os.environ.get("DATABASE_URL", DEFAULT_DATABASE_URL))
+        set_engine(engine)
     
     session = _session_factory()
     try:

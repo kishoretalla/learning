@@ -65,7 +65,7 @@ test.describe('Sprint v2: Auth + History E2E Flow', () => {
     const signupLink = page.locator('a:has-text("Create one")')
     await expect(signupLink).toBeVisible()
     await signupLink.click()
-    await expect(page).toHaveURL('**/signup')
+    await expect(page).toHaveURL(/\/signup$/)
   })
 
   test('signup page links are present and functional', async ({ page }) => {
@@ -75,7 +75,7 @@ test.describe('Sprint v2: Auth + History E2E Flow', () => {
     const loginLink = page.locator('a:has-text("Sign in")')
     await expect(loginLink).toBeVisible()
     await loginLink.click()
-    await expect(page).toHaveURL('**/login')
+    await expect(page).toHaveURL(/\/login$/)
   })
 
   test('redirected from login shows from parameter in URL', async ({ page }) => {
@@ -83,7 +83,7 @@ test.describe('Sprint v2: Auth + History E2E Flow', () => {
     await page.goto('http://localhost:3000/login?from=/upload')
     
     // Should preserve the 'from' parameter
-    await expect(page).toHaveURL('**/login?from=/upload')
+    await expect(page).toHaveURL(/\/login\?from=\/upload$/)
   })
 
   test('signup success message appears with from=signup param', async ({ page }) => {

@@ -22,7 +22,10 @@ export default function SignupPage() {
   const [isLoading, setIsLoading] = useState(false)
 
   const validateForm = (): string | null => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
     if (!email.trim()) return 'Email is required'
+    if (!emailRegex.test(email.trim())) return 'Please enter a valid email address'
     if (!password.trim()) return 'Password is required'
     if (password.length < 8) return 'Password must be at least 8 characters'
     if (password !== confirmPassword) return 'Passwords do not match'
@@ -104,7 +107,7 @@ export default function SignupPage() {
           )}
 
           {/* Form */}
-          <form onSubmit={handleSignup} className="space-y-4">
+          <form noValidate onSubmit={handleSignup} className="space-y-4">
             {/* Email */}
             <div>
               <label className="block text-sm font-medium text-arc-light mb-2">

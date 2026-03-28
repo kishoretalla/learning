@@ -27,10 +27,15 @@ build/
 .env
 .env.local
 .env.*.local
+aws_cred.md
+aws)cred.md
 
 # OS
 .DS_Store
 Thumbs.db
+
+# Upload test files
+*.pdf
 
 # IDE
 .idea/
@@ -50,7 +55,15 @@ build/
 # Testing
 coverage/
 .nyc_output/
+.pytest_cache/
+htmlcov/
 
 # Playwright
 test-results/
 playwright-report/
+
+# Local app artifacts
+research-notebook.db
+*.tfstate
+*.tfstate.*
+.terraform/

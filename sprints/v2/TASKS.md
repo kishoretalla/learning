@@ -47,6 +47,9 @@
   - Files: frontend/app/history/page.tsx, frontend/app/history/[id]/page.tsx, backend/main.py (GET /api/history endpoints)
   - Completed: 2026-03-26 — Created /history page showing user's analyses in reverse chronological order with creation timestamps. Linked analyses to detail pages at /history/[id]. Both pages check isUserAuthenticated() and redirect to /login if needed. Detail page shows analysis metadata (filename, title, created date) with download action. Both pages use CSRF_HEADER for secure API calls via credentials: include. Also added GET /api/history and GET /api/history/{id} backend endpoints with access control. All 20 v2 task tests passing. Semgrep clean.
 
-- [ ] Task 10: Protect frontend routes and add basic auth/history smoke tests (P1)
+- [x] Task 10: Protect frontend routes and add basic auth/history smoke tests (P1)
   - Acceptance: Unauthenticated users are redirected from protected pages; tests cover signup/login and history retrieval happy path.
-  - Files: frontend/middleware.ts, tests/integration/test_auth_history.py, frontend/tests/e2e/session-management.spec.ts
+  - Files: frontend/middleware.ts, tests/integration/test_auth_history.py, frontend/tests/e2e/auth-flow.spec.ts
+  - Completed: 2026-03-26 — Added frontend middleware.ts to protect routes (/upload, /processing, /history). Middleware checks for session cookie and redirects unauthenticated users to /login with 'from' parameter. Created 5 endpoint-to-endpoint smoke tests: complete user flow (signup→login→analyze→history→logout), invalid credentials handling, user history isolation, authenticated endpoint validation, session persistence. Created 13 E2E browser tests for auth pages, redirects, form validation, and routing. All 25 v2 task tests passing (Tasks 5-10). Semgrep clean.
+
+## Status: Complete ✅

@@ -27,6 +27,18 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [showSignupSuccessMessage, setShowSignupSuccessMessage] = useState(false)
 
+  const validateForm = (): string | null => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+    if (!email.trim() || !password.trim()) {
+      return 'Email and password are required'
+    }
+    if (!emailRegex.test(email.trim())) {
+      return 'Please enter a valid email address'
+    }
+    return null
+  }
+
   useEffect(() => {
     // Show success message if coming from signup
     if (from === 'signup') {
@@ -42,8 +54,9 @@ export default function LoginPage() {
     e.preventDefault()
     setError(null)
 
-    if (!email.trim() || !password.trim()) {
-      setError('Email and password are required')
+    const validationError = validateForm()
+    if (validationError) {
+      setError(validationError)
       return
     }
 
@@ -122,7 +135,7 @@ export default function LoginPage() {
           )}
 
           {/* Form */}
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form noValidate onSubmit={handleLogin} className="space-y-4">
             {/* Email */}
             <div>
               <label className="block text-sm font-medium text-arc-light mb-2">

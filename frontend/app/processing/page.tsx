@@ -15,7 +15,7 @@ interface Step {
 type Stage = 'running' | 'complete' | 'error' | 'no-data'
 type ColabStatus = 'idle' | 'loading' | 'ready' | 'unavailable'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
 
 const INITIAL_STEPS: Step[] = [
   { id: 'extract',  label: 'Text extracted from PDF',  status: 'done'    },
@@ -40,6 +40,7 @@ export default function ProcessingPage() {
 
   const runPipeline = async () => {
     const extractionRaw = sessionStorage.getItem('extraction_result')
+    const cachedAnalysisRaw = sessionStorage.getItem('analysis_result')
     const apiKey = loadApiKey()
 
     if (!extractionRaw || !apiKey) {
@@ -54,41 +55,69 @@ export default function ProcessingPage() {
     const filename: string = extraction.filename || 'paper.pdf'
 
     // ── Step 2: Analyze ──────────────────────────────────────────────────────
-    setStepStatus('analyze', 'running')
     let analysis: Record<string, unknown>
-    try {
-      const res = await fetch(`${API_URL}/api/analyze-paper`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...CSRF_HEADER },
-        body: JSON.stringify({ text: fullText, api_key: apiKey, filename }),
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: res.statusText }))
-        throw new Error(err.detail || res.statusText)
+    if (cachedAnalysisRaw) {
+      try {
+        analysis = JSON.parse(cachedAnalysisRaw)
+        setStepStatus('analyze', 'done')
+      } catch {
+        sessionStorage.removeItem('analysis_result')
+        setStepStatus('analyze', 'running')
+        try {
+          const res = await fetch(`${API_URL}/api/analyze-paper`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...CSRF_HEADER },
+            body: JSON.stringify({ text: fullText, api_key: apiKey, filename }),
+          })
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({ detail: res.statusText }))
+            throw new Error(err.detail || res.statusText)
+          }
+          analysis = await res.json()
+          setStepStatus('analyze', 'done')
+          sessionStorage.setItem('analysis_result', JSON.stringify(analysis))
+        } catch (e) {
+          setStepStatus('analyze', 'error')
+          setErrorMsg(e instanceof Error ? e.message : 'Analysis failed.')
+          setStage('error')
+          return
+        }
       }
-      analysis = await res.json()
-      setStepStatus('analyze', 'done')
-      sessionStorage.setItem('analysis_result', JSON.stringify(analysis))
-
-      // Kick off Markdown export in parallel with notebook generation
-      fetch(`${API_URL}/api/export-markdown`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...CSRF_HEADER },
-        body: JSON.stringify({ ...analysis, filename }),
-      }).then(async r => {
-        if (!r.ok) return
-        const blob = await r.blob()
-        const cd = r.headers.get('content-disposition') || ''
-        const match = cd.match(/filename="?([^"]+)"?/)
-        setMdUrl(URL.createObjectURL(blob))
-        setMdName(match?.[1] ?? filename.replace('.pdf', '-notebook.md'))
-      }).catch(() => {/* non-critical */})
-    } catch (e) {
-      setStepStatus('analyze', 'error')
-      setErrorMsg(e instanceof Error ? e.message : 'Analysis failed.')
-      setStage('error')
-      return
+    } else {
+      setStepStatus('analyze', 'running')
+      try {
+        const res = await fetch(`${API_URL}/api/analyze-paper`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...CSRF_HEADER },
+          body: JSON.stringify({ text: fullText, api_key: apiKey, filename }),
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ detail: res.statusText }))
+          throw new Error(err.detail || res.statusText)
+        }
+        analysis = await res.json()
+        setStepStatus('analyze', 'done')
+        sessionStorage.setItem('analysis_result', JSON.stringify(analysis))
+      } catch (e) {
+        setStepStatus('analyze', 'error')
+        setErrorMsg(e instanceof Error ? e.message : 'Analysis failed.')
+        setStage('error')
+        return
+      }
     }
+
+    fetch(`${API_URL}/api/export-markdown`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...CSRF_HEADER },
+      body: JSON.stringify({ ...analysis, filename }),
+    }).then(async r => {
+      if (!r.ok) return
+      const blob = await r.blob()
+      const cd = r.headers.get('content-disposition') || ''
+      const match = cd.match(/filename="?([^"]+)"?/) 
+      setMdUrl(URL.createObjectURL(blob))
+      setMdName(match?.[1] ?? filename.replace('.pdf', '-notebook.md'))
+    }).catch(() => {/* non-critical */})
 
     // ── Step 3: Generate ─────────────────────────────────────────────────────
     setStepStatus('generate', 'running')
@@ -155,6 +184,7 @@ export default function ProcessingPage() {
     setStage('running')
     setErrorMsg('')
     setDownloadUrl(null)
+    sessionStorage.removeItem('analysis_result')
     ranRef.current = true
     runPipeline()
   }

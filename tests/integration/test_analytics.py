@@ -96,46 +96,40 @@ def test_upload_errors_increments_on_empty_file():
 
 def test_analyses_attempted_increments():
     _reset_metrics()
-    mock_msg = MagicMock()
-    mock_msg.content = json.dumps({"abstract": "x", "methodologies": [],
-                                   "algorithms": [], "datasets": [],
-                                   "results": "x", "conclusions": "x"})
-    mock_choice = MagicMock()
-    mock_choice.message = mock_msg
-    mock_resp = MagicMock()
-    mock_resp.choices = [mock_choice]
+    mock_response = MagicMock()
+    mock_response.text = json.dumps(VALID_ANALYSIS)
+    mock_models = MagicMock()
+    mock_models.generate_content.return_value = mock_response
     mock_client = MagicMock()
-    mock_client.chat.completions.create.return_value = mock_resp
+    mock_client.models = mock_models
 
-    with patch("backend.main.OpenAI", return_value=mock_client):
-        client.post("/api/analyze-paper", json={"text": "some text", "api_key": "sk-t"})
+    with patch("backend.main.genai.Client", return_value=mock_client):
+        client.post("/api/analyze-paper", json={"text": "some text", "api_key": "AIza-test"})
 
     assert _metrics.analyses_attempted == 1
     assert _metrics.analyses_successful == 1
 
 
 def test_api_key_invalid_increments_on_401():
-    from openai import AuthenticationError
+    from google.genai import errors as genai_errors
     _reset_metrics()
+    err = genai_errors.ClientError(403, {"status": "PERMISSION_DENIED", "message": "bad key"})
     mock_client = MagicMock()
-    mock_client.chat.completions.create.side_effect = AuthenticationError(
-        "bad key", response=MagicMock(status_code=401), body={}
-    )
-    with patch("backend.main.OpenAI", return_value=mock_client):
-        client.post("/api/analyze-paper", json={"text": "x", "api_key": "sk-bad"})
+    mock_client.models.generate_content.side_effect = err
+    with patch("backend.main.genai.Client", return_value=mock_client):
+        client.post("/api/analyze-paper", json={"text": "x", "api_key": "AIza-bad"})
 
     assert _metrics.api_key_invalid == 1
 
 
 def test_rate_limit_hits_increments_on_429():
-    from openai import RateLimitError
+    from google.genai import errors as genai_errors
     _reset_metrics()
+    err = genai_errors.ClientError(429, {"status": "RESOURCE_EXHAUSTED", "message": "rate limit"})
     mock_client = MagicMock()
-    mock_client.chat.completions.create.side_effect = RateLimitError(
-        "rate limit", response=MagicMock(status_code=429), body={}
-    )
-    with patch("backend.main.OpenAI", return_value=mock_client):
-        client.post("/api/analyze-paper", json={"text": "x", "api_key": "sk-t"})
+    mock_client.models.generate_content.side_effect = err
+    with patch("backend.main.genai.Client", return_value=mock_client):
+        client.post("/api/analyze-paper", json={"text": "x", "api_key": "AIza-test"})
 
     assert _metrics.rate_limit_hits == 1
 

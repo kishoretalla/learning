@@ -7,18 +7,17 @@ from httpx import AsyncClient
 
 @pytest.mark.asyncio
 async def test_frontend_health_check():
-    """Test that frontend health check endpoint responds"""
-    from frontend.app.api.health.route import GET
-    
-    response = await GET()
-    assert response.status_code == 200
-    assert response.body
-    data = response.body
-    # Since it's a JSONResponse, we need to parse it
-    import json
-    parsed = json.loads(data)
-    assert parsed["status"] == "ok"
-    assert "research-notebook-frontend" in parsed["service"]
+    """Test that the frontend /api/health endpoint responds when the frontend is running."""
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as http:
+            response = await http.get("http://localhost:3000/api/health")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "ok"
+        assert "research-notebook-frontend" in data["service"]
+    except (httpx.ConnectError, httpx.TimeoutException):
+        pytest.skip("Frontend not running — skipping live health check")
 
 
 @pytest.mark.asyncio

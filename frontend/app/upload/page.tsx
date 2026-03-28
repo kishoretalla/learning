@@ -21,11 +21,13 @@ export default function UploadPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [apiKey, setApiKey] = useState('')
+  const [arxivUrl, setArxivUrl] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [isUploading, setIsUploading] = useState(false)
+  const [isResolvingArxiv, setIsResolvingArxiv] = useState(false)
   const [sessionActive, setSessionActive] = useState(false)
   const [expiresAt, setExpiresAt] = useState<Date | null>(null)
 
@@ -102,7 +104,7 @@ export default function UploadPage() {
       formData.append('file', file)
       formData.append('api_key', apiKey)
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || ''
       const response = await fetch(`${apiUrl}/api/extract-text`, {
         method: 'POST',
         headers: CSRF_HEADER,
@@ -113,11 +115,13 @@ export default function UploadPage() {
       setUploadProgress(100)
 
       if (!response.ok) {
-        throw new Error(`Upload failed: ${response.statusText}`)
+        const payload = await response.json().catch(() => ({ detail: response.statusText }))
+        throw new Error(payload.detail || `Upload failed: ${response.statusText}`)
       }
 
       const data = await response.json()
       sessionStorage.setItem('extraction_result', JSON.stringify(data))
+      sessionStorage.removeItem('analysis_result')
       router.push('/processing')
     } catch (err) {
       clearInterval(progressInterval)
@@ -128,7 +132,46 @@ export default function UploadPage() {
     }
   }
 
+  const handleArxivSubmit = async () => {
+    if (!apiKey.trim() || !arxivUrl.trim()) return
+
+    setIsResolvingArxiv(true)
+    setError(null)
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || ''
+      const response = await fetch(`${apiUrl}/api/arxiv-url`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...CSRF_HEADER },
+        body: JSON.stringify({ url: arxivUrl.trim(), api_key: apiKey }),
+      })
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({ detail: response.statusText }))
+        throw new Error(payload.detail || `arXiv request failed: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      sessionStorage.setItem('extraction_result', JSON.stringify({
+        filename: data.filename,
+        title: data.title,
+        source_url: data.source_url,
+        total_pages: data.total_pages,
+        total_chars: data.total_chars,
+        pages: data.pages,
+        is_arxiv: true,
+      }))
+      sessionStorage.setItem('analysis_result', JSON.stringify(data.analysis))
+      router.push('/processing')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not process arXiv URL.')
+    } finally {
+      setIsResolvingArxiv(false)
+    }
+  }
+
   const canSubmit = apiKey.trim().length > 0 && file !== null && !isUploading
+  const canSubmitArxiv = apiKey.trim().length > 0 && arxivUrl.trim().length > 0 && !isResolvingArxiv
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-arc-dark via-arc-gray to-arc-dark flex flex-col items-center justify-center p-4 sm:p-6 md:p-8">
@@ -164,7 +207,7 @@ export default function UploadPage() {
             Convert Your Paper
           </h1>
           <p className="text-arc-light opacity-60">
-            Upload a research paper and your Gemini API key to generate a Jupyter notebook.
+            Upload a research paper or paste an arXiv URL with your Gemini API key to generate a Jupyter notebook.
           </p>
         </div>
 
@@ -251,6 +294,37 @@ export default function UploadPage() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+
+          <div className="space-y-3 rounded-lg border border-arc-purple/10 bg-arc-gray/10 p-5">
+            <div className="space-y-1">
+              <label htmlFor="arxiv-url" className="block text-sm font-medium text-arc-light opacity-80">
+                arXiv URL or Identifier
+              </label>
+              <p className="text-xs text-arc-light opacity-40">
+                Example: <span className="font-mono">https://arxiv.org/abs/1706.03762</span> or <span className="font-mono">1706.03762</span>
+              </p>
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <input
+                id="arxiv-url"
+                type="text"
+                value={arxivUrl}
+                onChange={e => setArxivUrl(e.target.value)}
+                placeholder="Paste arXiv URL or ID"
+                data-testid="arxiv-url-input"
+                className="flex-1 rounded-lg border border-arc-purple/20 bg-arc-gray px-4 py-3 text-sm text-arc-light placeholder-arc-light/30 focus:outline-none focus:border-arc-purple/60 transition-colors font-mono"
+              />
+              <button
+                type="button"
+                onClick={handleArxivSubmit}
+                disabled={!canSubmitArxiv}
+                data-testid="arxiv-submit-button"
+                className="px-5 py-3 rounded-lg border border-arc-purple/30 text-arc-light font-semibold hover:border-arc-purple/60 hover:bg-arc-purple/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {isResolvingArxiv ? 'Resolving arXiv...' : 'Use arXiv URL'}
+              </button>
             </div>
           </div>
 

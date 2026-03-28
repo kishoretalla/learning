@@ -1,0 +1,72 @@
+name: Deploy to AWS ECS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      APP_NAME: ${{ vars.APP_NAME || 'research-notebook' }}
+      TF_VAR_app_name: ${{ vars.APP_NAME || 'research-notebook' }}
+      TF_VAR_environment: prod
+      TF_VAR_database_url: ${{ secrets.DATABASE_URL }}
+      TF_VAR_gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+      TF_VAR_github_token: ${{ secrets.GITHUB_TOKEN }}
+      TF_VAR_frontend_image_tag: ${{ github.sha }}
+      TF_VAR_backend_image_tag: ${{ github.sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform init
+        working-directory: infra/terraform
+        run: terraform init
+
+      - name: Bootstrap ECR repositories
+        working-directory: infra/terraform
+        run: |
+          terraform apply -auto-approve \
+            -target=aws_ecr_repository.frontend \
+            -target=aws_ecr_repository.backend
+
+      - name: Resolve AWS account ID
+        id: aws-account
+        run: echo "account_id=$(aws sts get-caller-identity --query Account --output text)" >> "$GITHUB_OUTPUT"
+
+      - name: Login to Amazon ECR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ steps.aws-account.outputs.account_id }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+
+      - name: Build and push backend image
+        run: |
+          BACKEND_IMAGE=${{ steps.aws-account.outputs.account_id }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${APP_NAME}-backend:${{ github.sha }}
+          docker build -f backend/Dockerfile -t "$BACKEND_IMAGE" .
+          docker push "$BACKEND_IMAGE"
+
+      - name: Build and push frontend image
+        run: |
+          FRONTEND_IMAGE=${{ steps.aws-account.outputs.account_id }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${APP_NAME}-frontend:${{ github.sha }}
+          docker build -t "$FRONTEND_IMAGE" ./frontend
+          docker push "$FRONTEND_IMAGE"
+
+      - name: Apply ECS infrastructure
+        working-directory: infra/terraform
+        run: terraform apply -auto-approve

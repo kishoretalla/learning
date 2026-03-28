@@ -12,7 +12,7 @@ interface DemoPaper {
   year: number
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
 
 export function DemoSection({ apiKey }: { apiKey: string }) {
   const router = useRouter()
@@ -44,6 +44,7 @@ export function DemoSection({ apiKey }: { apiKey: string }) {
       if (!res.ok) throw new Error('Failed to load demo paper.')
       const data = await res.json()
       sessionStorage.setItem('extraction_result', JSON.stringify(data))
+      sessionStorage.removeItem('analysis_result')
       saveApiKey(apiKey)
       router.push('/processing')
     } catch (e) {
