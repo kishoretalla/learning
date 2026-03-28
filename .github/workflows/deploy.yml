@@ -164,3 +164,34 @@ jobs:
       - name: Apply ECS infrastructure
         working-directory: infra/terraform
         run: terraform apply -auto-approve
+
+      - name: Capture Terraform outputs
+        id: tf-outputs
+        working-directory: infra/terraform
+        run: |
+          echo "alb_dns_name=$(terraform output -raw alb_dns_name)" >> "$GITHUB_OUTPUT"
+
+      - name: Post-deploy smoke test
+        run: |
+          ALB_DNS="${{ steps.tf-outputs.outputs.alb_dns_name }}"
+          test -n "$ALB_DNS"
+
+          curl --fail --show-error --silent \
+            --retry 12 \
+            --retry-connrefused \
+            --retry-delay 10 \
+            "http://${ALB_DNS}/" >/dev/null
+
+          curl --fail --show-error --silent \
+            --retry 12 \
+            --retry-connrefused \
+            --retry-delay 10 \
+            "http://${ALB_DNS}/health" >/dev/null
+
+          {
+            echo "## Deployment Verified"
+            echo
+            echo "- ALB: http://${ALB_DNS}"
+            echo "- Frontend `/`: OK"
+            echo "- Backend `/health`: OK"
+          } >> "$GITHUB_STEP_SUMMARY"
